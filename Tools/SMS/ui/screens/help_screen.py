@@ -1,0 +1,299 @@
+"""Help screen with working tab and scroll navigation."""
+from __future__ import annotations
+
+from typing import Any, Optional
+
+from rich.align import Align
+from rich.console import Group
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+
+from core.attacker import STRATEGIES
+from ui.theme import (
+    PRIMARY, PRIMARY_ALT, API_COLOR, ACCENT, OK, WARN, BAD,
+    FG, FG_DIM, FG_MUTED, BORDER,
+    BOX_MAIN,
+)
+from ui.tui import (
+    Screen,
+    KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT,
+    KEY_ESC, KEY_ENTER, KEY_BACKSPACE,
+)
+from ui.widgets import TextInput
+
+
+_SECTIONS = ["strategies", "concepts", "hotkeys", "config", "apis"]
+
+
+class HelpScreen(Screen):
+    name = "help"
+    title = "Help"
+    hotkeys = {"←→": "tab", "↑↓": "scroll", "/": "search"}
+
+    def __init__(self, app) -> None:
+        super().__init__(app)
+        self.section_idx = 0
+        self.scroll = 0
+        self.search = ""
+        self._searching = False
+        self._search_widget: Optional[TextInput] = None
+
+    @property
+    def section(self) -> str:
+        return _SECTIONS[self.section_idx]
+
+    
+    def render_cache_key(self) -> Any:
+        return (self.section_idx, self.scroll, self.search, self._searching)
+
+    
+    def render(self) -> Panel:
+        # Tabs
+        tabs = Text("  ")
+        for i, name in enumerate(_SECTIONS):
+            label = name.upper()
+            if i == self.section_idx:
+                tabs.append(f" {label} ", style=f"bold black on {PRIMARY_ALT}")
+            else:
+                tabs.append(f" {label} ", style=FG_DIM)
+            tabs.append("   ")
+
+        # Search line
+        search_line = Text()
+        if self._searching:
+            search_line.append("  filter: ", style=f"bold {PRIMARY}")
+            search_line.append_text(self._search_widget.render(True, 40))  # type: ignore
+        elif self.search:
+            search_line.append(f"  filter: {self.search}",
+                               style=f"bold {PRIMARY}")
+
+        # Body
+        body = self._render_section()
+
+        # Scroll indicator (only if content taller than viewport)
+        scroll_note = Text()
+        if self.scroll > 0:
+            scroll_note.append(f"  ↑ scrolled {self.scroll}", style=FG_MUTED)
+        hint = Text()
+        hint.append("  ", style=FG_MUTED)
+        hint.append("← →", style=f"bold {OK}")
+        hint.append(" switch tabs   ", style=FG_DIM)
+        hint.append("↑ ↓", style=f"bold {OK}")
+        hint.append(" scroll   ", style=FG_DIM)
+        hint.append("/", style=f"bold {OK}")
+        hint.append(" filter   ", style=FG_DIM)
+        hint.append("Esc", style=f"bold {OK}")
+        hint.append(" back", style=FG_DIM)
+
+        return Panel(
+            Align.left(Group(tabs, search_line, Text(""), body,
+                             Text(""), scroll_note, hint),
+                       vertical="top"),
+            title=f"[bold {PRIMARY}]  Help  [/]",
+            border_style=BORDER, box=BOX_MAIN, padding=(1, 2),
+        )
+
+    
+    def _render_section(self):
+        if self.section == "strategies":
+            return self._render_strategies()
+        if self.section == "concepts":
+            return self._render_concepts()
+        if self.section == "hotkeys":
+            return self._render_hotkeys()
+        if self.section == "config":
+            return self._render_config()
+        return self._render_apis()
+
+    
+    def _render_strategies(self) -> Table:
+        t = Table(
+            box=None, show_header=True, header_style=f"bold {API_COLOR}",
+            padding=(0, 2), expand=True,
+        )
+        t.add_column("Strategy", style=f"bold {PRIMARY}", width=16)
+        t.add_column("Summary", style=FG, width=42)
+        t.add_column("Details", style=FG_DIM)
+
+        for key, info in STRATEGIES.items():
+            tag = "  ⭐ default" if key == "smart" else ""
+            t.add_row(key + tag, info.get("summary", ""), info.get("details", ""))
+        return t
+
+    def _render_concepts(self) -> Group:
+        items = [
+            ("Targets",
+             "Iranian mobile numbers. Formats: 0912..., 98912..., +98912.... "
+             "Separate multiple targets with ';'. Duplicates are removed."),
+            ("Threads",
+             "Concurrent HTTP requests. Higher = faster but easier to rate-limit. "
+             "8-20 is a safe range on a typical connection."),
+            ("Rounds",
+             "How many times to walk the API list. '0' = unlimited and only makes "
+             "sense with smart or unlimited strategy."),
+            ("Delay / Jitter",
+             "Fixed wait plus random jitter between requests. Jitter breaks naive "
+             "rate-limit fingerprinting."),
+            ("Rate Cap",
+             "Global requests/sec ceiling across all threads. 0 = disabled. "
+             "Use if you start seeing HTTP 429."),
+            ("API Health",
+             "Per-API failure counter. N consecutive failures triggers M seconds "
+             "of cooldown. Live status is on the attack screen."),
+            ("Smart Weight",
+             "For the smart strategy: each API carries a weight that grows with "
+             "success and shrinks with failure. Weights drive selection."),
+            ("Body Verification",
+             "2xx alone is not success. ChSMSBomber inspects the response body "
+             "for error fields. Only requests where the body agrees count as wins."),
+            ("Dry-Run",
+             "Plans the attack (targets, jobs, rounds) but sends nothing. "
+             "Great for checking config before committing."),
+            ("Reports",
+             "Every finished attack can be exported to ./reports/ as JSON, CSV, "
+             "or HTML. Press 's' on the attack screen after it stops."),
+        ]
+        rows = []
+        for title, body in items:
+            g = Table.grid(padding=(0, 2))
+            g.add_column(style=f"bold {PRIMARY}", width=20)
+            g.add_column(style=FG)
+            g.add_row(title, body)
+            rows.append(g)
+            rows.append(Text(""))
+        return Group(*rows)
+
+    def _render_hotkeys(self) -> Table:
+        rows = [
+            ("↑ / ↓  or  k / j", "Move cursor in lists and forms"),
+            ("← / →", "Change cycle fields, switch help tabs"),
+            ("Enter", "Select, activate, or commit edit"),
+            ("Esc", "Go back, cancel edit, or stop attack"),
+            ("Space", "Toggle boolean, stop attack"),
+            ("?", "Open this help screen from anywhere"),
+            ("s", "Start (menu) / save reports (attack)"),
+            ("r", "Resume / reload / re-check"),
+            ("e", "Open Settings"),
+            ("a", "Open API Manager"),
+            ("u", "Check for API updates"),
+            ("l", "Open live logs"),
+            ("h", "Open session history"),
+            ("i", "About"),
+            ("g / G", "Jump to first / last item"),
+            ("/", "Search or filter"),
+            ("q", "Quit from the top-level menu"),
+        ]
+        t = Table(
+            box=None, show_header=True, header_style=f"bold {API_COLOR}",
+            padding=(0, 2), expand=True,
+        )
+        t.add_column("Key", style=f"bold {PRIMARY}", width=24)
+        t.add_column("Action", style=FG)
+        for k, v in rows:
+            t.add_row(k, v)
+        return t
+
+    def _render_config(self) -> Group:
+        items = [
+            ("network.timeout", "Per-request timeout in seconds."),
+            ("network.retries", "Retry count with exponential backoff."),
+            ("network.verify_ssl", "false skips TLS verification."),
+            ("network.proxy_enabled", "Route via network.proxy_pool."),
+            ("attack.hard_max_rounds", "Hard cap on rounds."),
+            ("attack.round_cooldown", "Wait between finite rounds."),
+            ("user_agent.rotate", "Fresh UA per request via fake-useragent."),
+            ("user_agent.custom", "If set, chosen from randomly."),
+            ("api_health.failure_threshold", "Consecutive failures before cooldown."),
+            ("api_health.cooldown_seconds", "Cooldown duration."),
+            ("output.report_format", "json or csv. HTML is written alongside."),
+            ("logging.level", "DEBUG / INFO / WARNING / ERROR."),
+        ]
+        rows = []
+        for k, v in items:
+            g = Table.grid(padding=(0, 2))
+            g.add_column(style=f"bold {PRIMARY}", width=34)
+            g.add_column(style=FG)
+            g.add_row(k, v)
+            rows.append(g)
+            rows.append(Text(""))
+        return Group(*rows)
+
+    def _render_apis(self) -> Group:
+        fields = [
+            ("name", "Display name."),
+            ("method", "POST or GET."),
+            ("url", "Endpoint. Placeholders: {cc} {intl} {local} {ts} {ua}."),
+            ("headers", "Per-API headers. {ua} = rotated user-agent."),
+            ("payload", "JSON body (application/json)."),
+            ("data", "Form body (application/x-www-form-urlencoded)."),
+            ("params", "Query string parameters."),
+            ("enabled", "false skips this API."),
+            ("weight", "Integer 1+ — firings per cycle."),
+            ("tags", "Labels used by the tag filter."),
+            ("success_regex", "Optional regex, overrides body check."),
+        ]
+        g = Table.grid(padding=(0, 2))
+        g.add_column(style=f"bold {API_COLOR}", width=18)
+        g.add_column(style=FG)
+        for k, v in fields:
+            g.add_row(k, v)
+
+        note = Text("\n  Placeholders\n", style=f"bold {PRIMARY}")
+        ph = Table.grid(padding=(0, 2))
+        ph.add_column(style=f"bold {API_COLOR}", width=18)
+        ph.add_column(style=FG)
+        ph.add_row("{cc}", "9123456789  (no country code, no leading zero)")
+        ph.add_row("{intl}", "+989123456789  (E.164)")
+        ph.add_row("{local}", "09123456789  (leading zero)")
+        ph.add_row("{ts}", "unix ms timestamp")
+        ph.add_row("{ua}", "rotated user-agent string")
+
+        return Group(g, note, ph)
+
+    
+    #  Input
+    def handle_key(self, key: str) -> Optional[str]:
+        # Search mode
+        if self._searching:
+            if key == KEY_ESC:
+                self._searching = False
+                self._search_widget = None
+                return None
+            result = self._search_widget.handle(key)  # type: ignore
+            if result is not None:
+                self.search = result
+                self._searching = False
+                self._search_widget = None
+                self.scroll = 0
+            return None
+
+        # Navigation
+        if key in (KEY_LEFT, "h"):
+            self.section_idx = (self.section_idx - 1) % len(_SECTIONS)
+            self.scroll = 0
+            return None
+        if key in (KEY_RIGHT, "l"):
+            self.section_idx = (self.section_idx + 1) % len(_SECTIONS)
+            self.scroll = 0
+            return None
+        if key in (KEY_UP, "k"):
+            self.scroll = max(0, self.scroll - 1)
+            return None
+        if key in (KEY_DOWN, "j"):
+            self.scroll += 1
+            return None
+        if key == "g":
+            self.scroll = 0
+            return None
+        if key == "G":
+            self.scroll += 20
+            return None
+        if key == "/":
+            self._searching = True
+            self._search_widget = TextInput(self.search)
+            self.app.notify("typing filter — Enter apply, Esc cancel", style=WARN)
+            return None
+        if key == KEY_ESC:
+            return "back"
+        return None

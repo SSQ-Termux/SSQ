@@ -1,0 +1,52 @@
+"""API health tracker — failure counting + cooldown."""
+from __future__ import annotations
+
+import threading
+import time
+from typing import Any
+
+from core.apis import api_key
+
+
+class ApiHealthTracker:
+    def __init__(self, threshold: int, cooldown: int) -> None:
+        self.threshold = max(1, int(threshold))
+        self.cooldown = max(1, int(cooldown))
+        self._lock = threading.Lock()
+        self._state: dict[str, dict[str, float]] = {}
+
+    def is_available(self, api: dict[str, Any]) -> bool:
+        with self._lock:
+            st = self._state.get(api_key(api))
+            if not st:
+                return True
+            if st.get("disabled_until", 0) > time.time():
+                return False
+            self._state.pop(api_key(api), None)
+            return True
+
+    def remaining_cooldown(self, api: dict[str, Any]) -> float:
+        with self._lock:
+            st = self._state.get(api_key(api))
+            if not st:
+                return 0.0
+            return max(0.0, st.get("disabled_until", 0) - time.time())
+
+    def record(self, api: dict[str, Any], success: bool) -> None:
+        with self._lock:
+            k = api_key(api)
+            st = self._state.setdefault(k, {"failures": 0, "disabled_until": 0})
+            if success:
+                st["failures"] = 0
+                st["disabled_until"] = 0
+            else:
+                st["failures"] = st.get("failures", 0) + 1
+                if st["failures"] >= self.threshold:
+                    st["disabled_until"] = time.time() + self.cooldown
+
+    def snapshot(self) -> dict[str, dict[str, float]]:
+        with self._lock:
+            return {k: dict(v) for k, v in self._state.items()}
+
+
+__all__ = ["ApiHealthTracker"]

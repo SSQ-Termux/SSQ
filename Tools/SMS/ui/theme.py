@@ -1,0 +1,482 @@
+"""Neon Modern — a rich, vibrant TUI palette with wide hue spread.
+
+Design principles
+─────────────────
+    1. Deep near-black base — modern dark terminal feel
+    2. Full-spectrum accents — magenta, orange, yellow, green, red,
+       cyan, lavender. Each owns exactly one role.
+    3. No single colour dominates the UI.
+    4. Cyan family is reserved for API names and hyperlinks only.
+    5. Status-bar chips use dark text on bright backgrounds (WCAG AA+).
+    6. Every UI element has an explicit token.
+
+Hue role assignment
+───────────────────
+    Magenta   #e879f9   brand:     headers, cursors, menu markers
+    Orange    #ff9d6b   focus:     focused fields, cycle values, sections
+    Cyan      #5fd4e8   APIs + links ONLY
+    Green     #7fd68a   success:   OK, positive counters, progress
+    Yellow    #f0d468   warning:   running spinner, warnings
+    Red       #e86b6b   error:     failures, error toasts
+    Lavender  #a4b0f0   info:      informational toasts, neutral accent
+    Grey      #9fa5b2   all other text
+"""
+from __future__ import annotations
+
+import os
+
+from rich import box
+
+
+def _has_truecolor() -> bool:
+    if os.environ.get("NO_COLOR"):
+        return False
+    ct = os.environ.get("COLORTERM", "").lower()
+    return ct in ("truecolor", "24bit")
+
+
+TRUECOLOR = _has_truecolor()
+
+
+def _c(hex_hi: str, fallback: str) -> str:
+    return hex_hi if TRUECOLOR else fallback
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  1. SURFACES
+# ══════════════════════════════════════════════════════════════════════
+SURFACE_BASE       = _c("#0d0e12", "black")
+SURFACE_PANEL      = _c("#16171e", "grey11")
+SURFACE_ELEVATED   = _c("#1e2029", "grey15")
+SURFACE_HOVER      = _c("#272a36", "grey19")
+SURFACE_SELECTED   = _c("#333747", "grey23")
+SURFACE_INPUT      = _c("#12131a", "grey7")
+SURFACE_INPUT_FOC  = _c("#1a1c25", "grey11")
+
+# ══════════════════════════════════════════════════════════════════════
+#  2. TEXT
+# ══════════════════════════════════════════════════════════════════════
+TEXT_PRIMARY       = _c("#e4e6eb", "white")
+TEXT_SECONDARY     = _c("#9fa5b2", "grey70")
+TEXT_TERTIARY      = _c("#6a7080", "grey54")
+TEXT_DISABLED      = _c("#454a55", "grey35")
+TEXT_INVERSE       = _c("#0d0e12", "black")
+
+# ══════════════════════════════════════════════════════════════════════
+#  3. BRAND — Magenta (#e879f9)
+#     Role: header art, breadcrumb active, menu markers, table cursors,
+#           focused borders, scrollbar thumb
+# ══════════════════════════════════════════════════════════════════════
+BRAND              = _c("#e879f9", "bright_magenta")
+BRAND_DIM          = _c("#b85cc8", "magenta")
+BRAND_BRIGHT       = _c("#f5a0ff", "bright_magenta")
+BRAND_ON_BG        = _c("#0d0e12", "black")
+
+# ══════════════════════════════════════════════════════════════════════
+#  4. FOCUS — Orange (#ff9d6b)
+#     Role: focused field labels, cycle pickers, section titles,
+#           form cursor background, tab highlights
+# ══════════════════════════════════════════════════════════════════════
+FOCUS              = _c("#ff9d6b", "color(215)")
+FOCUS_DIM          = _c("#d47a4e", "color(173)")
+FOCUS_BRIGHT       = _c("#ffb88c", "color(216)")
+FOCUS_ON_BG        = _c("#0d0e12", "black")
+
+# ══════════════════════════════════════════════════════════════════════
+#  5. SEMANTIC
+# ══════════════════════════════════════════════════════════════════════
+
+# 5.1 Success — Green
+SUCCESS            = _c("#7fd68a", "bright_green")
+SUCCESS_DIM        = _c("#5cb068", "green")
+SUCCESS_BRIGHT     = _c("#a0e8a8", "bright_green")
+SUCCESS_ON_BG      = _c("#0d0e12", "black")
+
+# 5.2 Warning — Yellow
+WARNING            = _c("#f0d468", "bright_yellow")
+WARNING_DIM        = _c("#c8a848", "yellow")
+WARNING_BRIGHT     = _c("#ffe890", "bright_yellow")
+WARNING_ON_BG      = _c("#0d0e12", "black")
+
+# 5.3 Error — Red
+ERROR              = _c("#e86b6b", "bright_red")
+ERROR_DIM          = _c("#c04848", "red")
+ERROR_BRIGHT       = _c("#ff8888", "bright_red")
+ERROR_ON_BG        = _c("#0d0e12", "black")
+
+# 5.4 Info — Lavender
+INFO               = _c("#a4b0f0", "bright_blue")
+INFO_DIM           = _c("#7a88c8", "blue")
+INFO_BRIGHT        = _c("#c0c8ff", "bright_blue")
+INFO_ON_BG         = _c("#0d0e12", "black")
+
+# ══════════════════════════════════════════════════════════════════════
+#  6. API / LINK — Cyan (#5fd4e8) — the ONLY cyan family
+#     Role: API names in tables, hyperlinks, inline `code` in help
+# ══════════════════════════════════════════════════════════════════════
+API_NAME           = _c("#5fd4e8", "bright_cyan")
+API_NAME_FOCUSED   = _c("#96e8f5", "bright_cyan")
+LINK               = _c("#5fd4e8", "bright_cyan")
+LINK_UNDERLINE     = LINK
+LINK_HOVER         = _c("#96e8f5", "bright_cyan")
+
+# ══════════════════════════════════════════════════════════════════════
+#  7. BORDERS
+# ══════════════════════════════════════════════════════════════════════
+BORDER_DEFAULT     = _c("#2e3342", "grey27")
+BORDER_SUBTLE      = _c("#23262f", "grey23")
+BORDER_FOCUSED     = BRAND
+BORDER_ACCENT      = FOCUS
+BORDER_DISABLED    = TEXT_DISABLED
+BORDER_STATUS_OK   = SUCCESS_DIM
+BORDER_STATUS_WARN = WARNING_DIM
+BORDER_STATUS_BAD  = ERROR_DIM
+
+# ══════════════════════════════════════════════════════════════════════
+#  8. CHIP BACKGROUNDS — bright, distinct hues for key caps and tabs
+# ══════════════════════════════════════════════════════════════════════
+CHIP_BG_DEFAULT    = _c("#ffb88c", "color(216)")   # peach orange (key caps)
+CHIP_BG_ALT        = _c("#e8a0f5", "bright_magenta")   # magenta (help tabs)
+CHIP_BG_OK         = _c("#a0e8a8", "bright_green")     # green
+CHIP_BG_WARN       = _c("#ffe890", "bright_yellow")    # yellow
+CHIP_BG_BAD        = _c("#ff8888", "bright_red")       # red
+CHIP_BG_API        = _c("#96e8f5", "bright_cyan")      # cyan
+CHIP_BG_INFO       = _c("#c0c8ff", "bright_blue")      # lavender
+CHIP_FG_DEFAULT    = _c("#0d0e12", "black")
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  9. STATUS BAR / FOOTER — every colour used here, defined in-place
+#
+#     ┌──────────────────────────────────────────────────────────┐
+#     │  [↑↓] move   [⏎] select   [?] help   [Esc] back    ● OK  │
+#     │   key cap    key cap      key cap    key cap       toast │
+#     └──────────────────────────────────────────────────────────┘
+# ══════════════════════════════════════════════════════════════════════
+
+# ── 9.1  Panel frame ─────────────────────────────────────────────────
+STATUS_BAR_BORDER          = BORDER_DEFAULT        # #2e3342 slate
+STATUS_BAR_BG              = SURFACE_BASE          # #0d0e12 app bg
+
+# ── 9.2  Navigation BUTTONS (key caps) ───────────────────────────────
+#     Foreground = #0d0e12  (near-black)
+#     Background = #ffb88c  (bright peach-orange)
+#     Contrast ≈ 14 : 1 — always readable.
+STATUS_BAR_KEY_FG          = CHIP_FG_DEFAULT       # #0d0e12
+STATUS_BAR_KEY_BG          = CHIP_BG_DEFAULT       # #ffb88c
+
+STATUS_BAR_KEY_FG_FOCUSED  = CHIP_FG_DEFAULT       # #0d0e12
+STATUS_BAR_KEY_BG_FOCUSED  = BRAND_BRIGHT          # #f5a0ff
+
+STATUS_BAR_KEY_FG_DISABLED = TEXT_DISABLED         # #454a55
+STATUS_BAR_KEY_BG_DISABLED = SURFACE_ELEVATED      # #1e2029
+
+# ── 9.3  Description text next to each key cap ───────────────────────
+STATUS_BAR_TEXT            = TEXT_SECONDARY        # #9fa5b2
+
+# ── 9.4  Gap between hotkey groups ───────────────────────────────────
+STATUS_BAR_SEPARATOR       = TEXT_DISABLED         # #454a55
+
+# ── 9.5  Toast bullet prefix "●" ─────────────────────────────────────
+STATUS_BAR_BULLET          = TEXT_TERTIARY         # #6a7080
+
+# ── 9.6  Toast notification text, per level ──────────────────────────
+STATUS_BAR_TOAST_INFO      = INFO                  # #a4b0f0 lavender
+STATUS_BAR_TOAST_OK        = SUCCESS               # #7fd68a green
+STATUS_BAR_TOAST_WARN      = WARNING               # #f0d468 yellow
+STATUS_BAR_TOAST_BAD       = ERROR                 # #e86b6b red
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 10. FOOTER aliases
+# ══════════════════════════════════════════════════════════════════════
+FOOTER_HINT_TEXT    = STATUS_BAR_TEXT
+FOOTER_SEPARATOR    = STATUS_BAR_SEPARATOR
+FOOTER_TOAST_INFO   = STATUS_BAR_TOAST_INFO
+FOOTER_TOAST_OK     = STATUS_BAR_TOAST_OK
+FOOTER_TOAST_WARN   = STATUS_BAR_TOAST_WARN
+FOOTER_TOAST_BAD    = STATUS_BAR_TOAST_BAD
+FOOTER_TOAST_BULLET = STATUS_BAR_BULLET
+
+# ══════════════════════════════════════════════════════════════════════
+# 11. HEADER
+# ══════════════════════════════════════════════════════════════════════
+HEADER_ART                = BRAND                  # magenta wordmark
+HEADER_VERSION            = TEXT_TERTIARY
+HEADER_BREADCRUMB         = TEXT_TERTIARY
+HEADER_BREADCRUMB_ACTIVE  = BRAND_BRIGHT
+HEADER_BREADCRUMB_SEP     = TEXT_DISABLED
+HEADER_SPINNER            = SUCCESS
+HEADER_SPINNER_IDLE       = TEXT_TERTIARY
+
+# ══════════════════════════════════════════════════════════════════════
+# 12. MENUS
+# ══════════════════════════════════════════════════════════════════════
+MENU_MARKER         = BRAND
+MENU_ITEM           = TEXT_PRIMARY
+MENU_ITEM_FOCUSED   = BRAND_BRIGHT
+MENU_DESC           = TEXT_TERTIARY
+MENU_DESC_FOCUSED   = TEXT_SECONDARY
+MENU_SEPARATOR      = TEXT_DISABLED
+MENU_GROUP_LABEL    = FOCUS                        # orange section header
+
+# ══════════════════════════════════════════════════════════════════════
+# 13. FORMS
+# ══════════════════════════════════════════════════════════════════════
+FORM_LABEL          = TEXT_PRIMARY
+FORM_LABEL_FOCUSED  = FOCUS                        # orange
+FORM_VALUE          = TEXT_PRIMARY
+FORM_VALUE_FOCUSED  = TEXT_PRIMARY
+FORM_CURSOR_FG      = TEXT_INVERSE
+FORM_CURSOR_BG      = FOCUS
+FORM_HINT           = TEXT_TERTIARY
+FORM_PLACEHOLDER    = TEXT_DISABLED
+FORM_MARKER         = BRAND
+FORM_SECTION_LABEL  = FOCUS
+FORM_ACTION         = WARNING                      # yellow start-attack
+FORM_ACTION_FOCUS   = WARNING_BRIGHT
+FORM_ACTION_DIM     = WARNING_DIM
+
+# ══════════════════════════════════════════════════════════════════════
+# 14. TOGGLES
+# ══════════════════════════════════════════════════════════════════════
+TOGGLE_ON_BG        = SUCCESS                      # green
+TOGGLE_ON_FG        = TEXT_INVERSE
+TOGGLE_OFF_BG       = ERROR_DIM                    # red
+TOGGLE_OFF_FG       = TEXT_INVERSE
+
+# ══════════════════════════════════════════════════════════════════════
+# 15. CYCLES
+# ══════════════════════════════════════════════════════════════════════
+CYCLE_BG            = FOCUS_DIM                    # muted orange
+CYCLE_FG            = TEXT_INVERSE
+CYCLE_FG_FOCUSED    = TEXT_INVERSE
+CYCLE_BG_FOCUSED    = FOCUS                        # bright orange
+CYCLE_ARROW         = FOCUS_BRIGHT
+
+# ══════════════════════════════════════════════════════════════════════
+# 16. TABLES
+# ══════════════════════════════════════════════════════════════════════
+TABLE_HEADER        = FOCUS                        # orange column titles
+TABLE_ROW           = TEXT_PRIMARY
+TABLE_ROW_ALT       = TEXT_SECONDARY
+TABLE_ROW_FOCUSED   = BRAND_BRIGHT                 # magenta cursor row
+TABLE_ROW_DISABLED  = TEXT_DISABLED
+TABLE_CELL_BORDER   = BORDER_SUBTLE
+TABLE_MARKER        = BRAND
+TABLE_TITLE         = BRAND
+
+# ══════════════════════════════════════════════════════════════════════
+# 17. PROGRESS
+# ══════════════════════════════════════════════════════════════════════
+PROGRESS_FILLED     = SUCCESS                      # green fill
+PROGRESS_EMPTY      = TEXT_DISABLED
+PROGRESS_HEAD       = SUCCESS_BRIGHT
+PROGRESS_TAIL       = SUCCESS_DIM
+PROGRESS_LABEL      = TEXT_SECONDARY
+PROGRESS_PCT        = TEXT_PRIMARY
+
+# ══════════════════════════════════════════════════════════════════════
+# 18. SPINNERS
+# ══════════════════════════════════════════════════════════════════════
+SPINNER_RUNNING     = WARNING                      # yellow running spinner
+SPINNER_IDLE        = TEXT_TERTIARY
+SPINNER_LABEL       = TEXT_SECONDARY
+
+# ══════════════════════════════════════════════════════════════════════
+# 19. STATUS INDICATORS
+# ══════════════════════════════════════════════════════════════════════
+STATUS_ACTIVE       = SUCCESS
+STATUS_COOLING      = WARNING
+STATUS_DISABLED     = TEXT_TERTIARY
+STATUS_ERROR        = ERROR
+
+# ══════════════════════════════════════════════════════════════════════
+# 20. SCROLLBAR
+# ══════════════════════════════════════════════════════════════════════
+SCROLLBAR_TRACK     = SURFACE_PANEL
+SCROLLBAR_THUMB     = TEXT_DISABLED
+SCROLLBAR_THUMB_HL  = BRAND
+
+# ══════════════════════════════════════════════════════════════════════
+# 21. HELP / DOCS
+# ══════════════════════════════════════════════════════════════════════
+HELP_TAB_ACTIVE     = CHIP_BG_ALT                  # magenta tab
+HELP_TAB_INACTIVE   = TEXT_TERTIARY
+HELP_TAB_FG         = TEXT_INVERSE
+HELP_SECTION        = FOCUS
+HELP_TERM           = BRAND
+HELP_DESC           = TEXT_SECONDARY
+HELP_CODE           = API_NAME
+
+# ══════════════════════════════════════════════════════════════════════
+# 22. BOXES + SPINNER FRAMES
+# ══════════════════════════════════════════════════════════════════════
+BOX_MAIN  = box.ROUNDED
+BOX_SUB   = box.ROUNDED
+BOX_TABLE = box.SIMPLE_HEAD
+BOX_MIN   = box.MINIMAL
+
+SPINNER_DOTS  = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+SPINNER_PULSE = ["·", "•", "●", "•"]
+SPINNER_BAR   = ["▏", "▎", "▍", "▌", "▋", "▊", "▉", "█",
+                 "▉", "▊", "▋", "▌", "▍", "▎"]
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  BACKWARDS-COMPATIBILITY ALIASES
+# ══════════════════════════════════════════════════════════════════════
+BG          = SURFACE_BASE
+BG_PANEL    = SURFACE_PANEL
+BG_HILITE   = SURFACE_SELECTED
+FG          = TEXT_PRIMARY
+FG_DIM      = TEXT_SECONDARY
+FG_MUTED    = TEXT_TERTIARY
+PRIMARY     = BRAND
+PRIMARY_ALT = BRAND_DIM
+ACCENT      = FOCUS
+ACCENT_ALT  = FOCUS_DIM
+OK          = SUCCESS
+OK_ALT      = SUCCESS_DIM
+WARN        = WARNING
+BAD         = ERROR
+BAD_ALT     = ERROR_DIM
+API_COLOR   = API_NAME
+API_BRIGHT  = API_NAME_FOCUSED
+CHIP_BG     = CHIP_BG_DEFAULT
+CHIP_FG     = CHIP_FG_DEFAULT
+DIM         = TEXT_SECONDARY
+FAINT       = TEXT_TERTIARY
+HILITE      = f"bold {BRAND}"
+BORDER      = BORDER_DEFAULT
+BORDER_HL   = BORDER_FOCUSED
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  INLINE STYLE HELPERS
+# ══════════════════════════════════════════════════════════════════════
+def chip(text: str, bg: str | None = None) -> str:
+    """Key cap — dark text on bright peach-orange."""
+    return f"[bold {STATUS_BAR_KEY_FG} on {bg or STATUS_BAR_KEY_BG}] {text} [/]"
+
+
+def chip_alt(text: str) -> str:
+    """Magenta chip — help tabs."""
+    return f"[bold {CHIP_FG_DEFAULT} on {CHIP_BG_ALT}] {text} [/]"
+
+
+def chip_ok(text: str) -> str:
+    return f"[bold {CHIP_FG_DEFAULT} on {CHIP_BG_OK}] {text} [/]"
+
+
+def chip_warn(text: str) -> str:
+    return f"[bold {CHIP_FG_DEFAULT} on {CHIP_BG_WARN}] {text} [/]"
+
+
+def chip_bad(text: str) -> str:
+    return f"[bold {CHIP_FG_DEFAULT} on {CHIP_BG_BAD}] {text} [/]"
+
+
+def chip_info(text: str) -> str:
+    return f"[bold {CHIP_FG_DEFAULT} on {CHIP_BG_INFO}] {text} [/]"
+
+
+def link(text: str) -> str:
+    return f"[underline {LINK}]{text}[/]"
+
+
+def api(text: str) -> str:
+    return f"[{API_NAME}]{text}[/]"
+
+
+def muted(text: str) -> str:
+    return f"[{TEXT_SECONDARY}]{text}[/]"
+
+
+def accent(text: str) -> str:
+    return f"[{FOCUS}]{text}[/]"
+
+
+__all__ = [
+    "TRUECOLOR",
+    # 1. Surfaces
+    "SURFACE_BASE", "SURFACE_PANEL", "SURFACE_ELEVATED", "SURFACE_HOVER",
+    "SURFACE_SELECTED", "SURFACE_INPUT", "SURFACE_INPUT_FOC",
+    # 2. Text
+    "TEXT_PRIMARY", "TEXT_SECONDARY", "TEXT_TERTIARY", "TEXT_DISABLED",
+    "TEXT_INVERSE",
+    # 3. Brand
+    "BRAND", "BRAND_DIM", "BRAND_BRIGHT", "BRAND_ON_BG",
+    # 4. Focus
+    "FOCUS", "FOCUS_DIM", "FOCUS_BRIGHT", "FOCUS_ON_BG",
+    # 5. Semantic
+    "SUCCESS", "SUCCESS_DIM", "SUCCESS_BRIGHT", "SUCCESS_ON_BG",
+    "WARNING", "WARNING_DIM", "WARNING_BRIGHT", "WARNING_ON_BG",
+    "ERROR", "ERROR_DIM", "ERROR_BRIGHT", "ERROR_ON_BG",
+    "INFO", "INFO_DIM", "INFO_BRIGHT", "INFO_ON_BG",
+    # 6. API / Link
+    "API_NAME", "API_NAME_FOCUSED", "LINK", "LINK_UNDERLINE", "LINK_HOVER",
+    # 7. Borders
+    "BORDER_DEFAULT", "BORDER_SUBTLE", "BORDER_FOCUSED", "BORDER_ACCENT",
+    "BORDER_DISABLED", "BORDER_STATUS_OK", "BORDER_STATUS_WARN",
+    "BORDER_STATUS_BAD",
+    # 8. Chips
+    "CHIP_BG_DEFAULT", "CHIP_BG_ALT", "CHIP_BG_OK", "CHIP_BG_WARN",
+    "CHIP_BG_BAD", "CHIP_BG_API", "CHIP_BG_INFO", "CHIP_FG_DEFAULT",
+    # 9. Status bar
+    "STATUS_BAR_BORDER", "STATUS_BAR_BG",
+    "STATUS_BAR_KEY_FG", "STATUS_BAR_KEY_BG",
+    "STATUS_BAR_KEY_FG_FOCUSED", "STATUS_BAR_KEY_BG_FOCUSED",
+    "STATUS_BAR_KEY_FG_DISABLED", "STATUS_BAR_KEY_BG_DISABLED",
+    "STATUS_BAR_TEXT", "STATUS_BAR_SEPARATOR", "STATUS_BAR_BULLET",
+    "STATUS_BAR_TOAST_INFO", "STATUS_BAR_TOAST_OK",
+    "STATUS_BAR_TOAST_WARN", "STATUS_BAR_TOAST_BAD",
+    # 10. Footer aliases
+    "FOOTER_HINT_TEXT", "FOOTER_SEPARATOR", "FOOTER_TOAST_INFO",
+    "FOOTER_TOAST_OK", "FOOTER_TOAST_WARN", "FOOTER_TOAST_BAD",
+    "FOOTER_TOAST_BULLET",
+    # 11. Header
+    "HEADER_ART", "HEADER_VERSION", "HEADER_BREADCRUMB",
+    "HEADER_BREADCRUMB_ACTIVE", "HEADER_BREADCRUMB_SEP",
+    "HEADER_SPINNER", "HEADER_SPINNER_IDLE",
+    # 12. Menus
+    "MENU_MARKER", "MENU_ITEM", "MENU_ITEM_FOCUSED", "MENU_DESC",
+    "MENU_DESC_FOCUSED", "MENU_SEPARATOR", "MENU_GROUP_LABEL",
+    # 13. Forms
+    "FORM_LABEL", "FORM_LABEL_FOCUSED", "FORM_VALUE", "FORM_VALUE_FOCUSED",
+    "FORM_CURSOR_FG", "FORM_CURSOR_BG", "FORM_HINT", "FORM_PLACEHOLDER",
+    "FORM_MARKER", "FORM_SECTION_LABEL", "FORM_ACTION", "FORM_ACTION_FOCUS",
+    "FORM_ACTION_DIM",
+    # 14. Toggles
+    "TOGGLE_ON_BG", "TOGGLE_ON_FG", "TOGGLE_OFF_BG", "TOGGLE_OFF_FG",
+    # 15. Cycles
+    "CYCLE_BG", "CYCLE_FG", "CYCLE_FG_FOCUSED", "CYCLE_BG_FOCUSED",
+    "CYCLE_ARROW",
+    # 16. Tables
+    "TABLE_HEADER", "TABLE_ROW", "TABLE_ROW_ALT", "TABLE_ROW_FOCUSED",
+    "TABLE_ROW_DISABLED", "TABLE_CELL_BORDER", "TABLE_MARKER", "TABLE_TITLE",
+    # 17. Progress
+    "PROGRESS_FILLED", "PROGRESS_EMPTY", "PROGRESS_HEAD", "PROGRESS_TAIL",
+    "PROGRESS_LABEL", "PROGRESS_PCT",
+    # 18. Spinner
+    "SPINNER_RUNNING", "SPINNER_IDLE", "SPINNER_LABEL",
+    # 19. Status
+    "STATUS_ACTIVE", "STATUS_COOLING", "STATUS_DISABLED", "STATUS_ERROR",
+    # 20. Scrollbar
+    "SCROLLBAR_TRACK", "SCROLLBAR_THUMB", "SCROLLBAR_THUMB_HL",
+    # 21. Help
+    "HELP_TAB_ACTIVE", "HELP_TAB_INACTIVE", "HELP_TAB_FG",
+    "HELP_SECTION", "HELP_TERM", "HELP_DESC", "HELP_CODE",
+    # 22. Boxes + frames
+    "BOX_MAIN", "BOX_SUB", "BOX_TABLE", "BOX_MIN",
+    "SPINNER_DOTS", "SPINNER_PULSE", "SPINNER_BAR",
+    # Aliases
+    "BG", "BG_PANEL", "BG_HILITE", "FG", "FG_DIM", "FG_MUTED",
+    "PRIMARY", "PRIMARY_ALT", "ACCENT", "ACCENT_ALT",
+    "OK", "OK_ALT", "WARN", "BAD", "BAD_ALT", "INFO",
+    "API_COLOR", "API_BRIGHT", "CHIP_BG", "CHIP_FG",
+    "DIM", "FAINT", "HILITE", "BORDER", "BORDER_HL",
+    # Helpers
+    "chip", "chip_alt", "chip_ok", "chip_warn", "chip_bad", "chip_info",
+    "link", "api", "muted", "accent",
+]
